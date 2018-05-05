@@ -5,6 +5,7 @@
 import random
 import time
 import string
+import heapq
 
 random.seed(time.time())
 allChars = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,.:;!@#$%^&*()-_=+<>/?[]}{|~')
@@ -28,14 +29,11 @@ class Generation():
 				else:
 					self.individualsDict[i] = Individual()
 		elif size == None and prevGeneration != None:
-			toBreedCount = len(prevGeneration.individualsDict)/4
+			toBreedCount = len(prevGeneration.individualsDict)//4
 			toBreed = {'Male':[],'Female':[]}
-			for i in range(len(prevGeneration.individualsDict)):
-				if prevGeneration.individualsDict[i].score < max((indv.score for indv in toBreed[prevGeneration.individualsDict[i].gender]),default=1000000):
-					while len(toBreed[prevGeneration.individualsDict[i].gender]) >= toBreedCount:
-						toBreed[prevGeneration.individualsDict[i].gender].remove(max((indv for indv in toBreed[prevGeneration.individualsDict[i].gender]),key=lambda indv: indv.score))
-					toBreed[prevGeneration.individualsDict[i].gender].append(prevGeneration.individualsDict[i])
-			self.breed(toBreed,len(prevGeneration.individualsDict)+firstGenScore//prevGeneration.bestIndividual().score)
+			for gender in toBreed:
+				toBreed[gender] = prevGeneration.bestIndividuals(toBreedCount,gender)
+			self.breed(toBreed,len(prevGeneration.individualsDict)+firstGenScore//prevGeneration.bestIndividuals(1)[0].score)
 
 	def breed(self,specimensByGender,popSize):
 		while len(self.individualsDict) < popSize:
@@ -47,12 +45,17 @@ class Generation():
 				self.individualsDict[len(self.individualsDict)] = Individual(random.choice(specimensByGender['Male']),random.choice(specimensByGender['Female']))
 		return
 
-	def bestIndividual(self):
-		return min((indv for indv in self.individualsDict.values()),key=lambda indv:indv.score)
+	def bestIndividuals(self,count,gender=None):
+		if gender != None:
+			return heapq.nsmallest(count,(indv for indv in self.individualsDict.values() if indv.gender == gender),key=lambda indv:indv.score)
+		if gender == None:
+			return heapq.nsmallest(count,(indv for indv in self.individualsDict.values()),key=lambda indv:indv.score)
 
-	def worstIndividual(self):
-		return max((indv for indv in self.individualsDict.values()),key=lambda indv:indv.score)		
-
+	def worstIndividuals(self,count,gender=None):
+		if gender != None:
+			return heapq.nlargest(count,(indv for indv in self.individualsDict.values() if indv.gender == gender),key=lambda indv:indv.score)
+		if gender == None:
+			return heapq.nlargest(count,(indv for indv in self.individualsDict.values()),key=lambda indv:indv.score)
 class Individual():
 	def __init__(self,Individual1=None,Individual2=None,forcedGender=None):
 		if Individual1 == None and Individual2 == None:
@@ -146,10 +149,10 @@ bestscore=99999
 lastprintgen = 0
 initialGenSize = random.randrange(100,150)*2
 currentGen = Generation(size=initialGenSize)
-firstGenScore = currentGen.bestIndividual().score
+firstGenScore = currentGen.bestIndividuals(1)[0].score
 initialstrings = str(list("".join(indv.currentDNA) for indv in currentGen.individualsDict.values()))
 print(targetList)
-while targetList != currentGen.bestIndividual().currentDNA:
+while targetList != currentGen.bestIndividuals(1)[0].currentDNA:
 	oldGen = currentGen
 	currentGen = Generation(prevGeneration=oldGen)
 	genCount +=1
@@ -157,7 +160,7 @@ while targetList != currentGen.bestIndividual().currentDNA:
 	if lastscore ==0:
 		while(1):
 			pass
-	lastscore=currentGen.bestIndividual().score
+	lastscore=currentGen.bestIndividuals(1)[0].score
 	if lastscore < bestscore:
 		bestscore = lastscore
 		print("best score so far: %s, population %s, generations since last print: %s" % (bestscore,len(currentGen.individualsDict.values()),genCount-lastprintgen))
