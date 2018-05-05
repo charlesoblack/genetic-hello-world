@@ -35,7 +35,7 @@ class Generation():
 					while len(toBreed[prevGeneration.individualsDict[i].gender]) >= toBreedCount:
 						toBreed[prevGeneration.individualsDict[i].gender].remove(max((indv for indv in toBreed[prevGeneration.individualsDict[i].gender]),key=lambda indv: indv.score))
 					toBreed[prevGeneration.individualsDict[i].gender].append(prevGeneration.individualsDict[i])
-			self.breed(toBreed,len(prevGeneration.individualsDict))
+			self.breed(toBreed,len(prevGeneration.individualsDict)+firstGenScore//prevGeneration.bestIndividual().score)
 
 	def breed(self,specimensByGender,popSize):
 		while len(self.individualsDict) < popSize:
@@ -46,7 +46,12 @@ class Generation():
 			else:
 				self.individualsDict[len(self.individualsDict)] = Individual(random.choice(specimensByGender['Male']),random.choice(specimensByGender['Female']))
 		return
-		
+
+	def bestIndividual(self):
+		return min((indv for indv in self.individualsDict.values()),key=lambda indv:indv.score)
+
+	def worstIndividual(self):
+		return max((indv for indv in self.individualsDict.values()),key=lambda indv:indv.score)		
 
 class Individual():
 	def __init__(self,Individual1=None,Individual2=None,forcedGender=None):
@@ -138,10 +143,13 @@ def nextGen(oldGeneration):
 genCount = 0
 lastscore=10000
 bestscore=99999
-currentGen = Generation(size=random.randrange(0,10)*2)
+lastprintgen = 0
+initialGenSize = random.randrange(100,150)*2
+currentGen = Generation(size=initialGenSize)
+firstGenScore = currentGen.bestIndividual().score
 initialstrings = str(list("".join(indv.currentDNA) for indv in currentGen.individualsDict.values()))
 print(targetList)
-while targetList != min((indv for indv in currentGen.individualsDict.values()),key=lambda indv:indv.score).currentDNA:
+while targetList != currentGen.bestIndividual().currentDNA:
 	oldGen = currentGen
 	currentGen = Generation(prevGeneration=oldGen)
 	genCount +=1
@@ -149,8 +157,9 @@ while targetList != min((indv for indv in currentGen.individualsDict.values()),k
 	if lastscore ==0:
 		while(1):
 			pass
-	lastscore=min((indv.score for indv in currentGen.individualsDict.values()))
+	lastscore=currentGen.bestIndividual().score
 	if lastscore < bestscore:
 		bestscore = lastscore
-		print("best score so far: %s" % bestscore)
-print("Final generation count: "+str(genCount),"Initial strings: "+initialstrings,"Target string: "+targetString,sep="\n")
+		print("best score so far: %s, population %s, generations since last print: %s" % (bestscore,len(currentGen.individualsDict.values()),genCount-lastprintgen))
+		lastprintgen = genCount
+print("Final generation count: "+str(genCount),"Target string: "+targetString,"Initial generation size: "+str(initialGenSize),sep="\n") #"Initial strings: "+initialstrings,
