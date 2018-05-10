@@ -7,6 +7,8 @@ import time
 import string
 import heapq
 
+#create ASCII versions of images with pillow
+
 random.seed(time.time())
 allChars = list('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,.:;!@#$%^&*()-_=+<>/?[]}{|~')
 targetString = input("Target string?\n")
@@ -29,7 +31,7 @@ class Generation():
 				else:
 					self.individualsDict[i] = Individual()
 		elif size == None and prevGeneration != None:
-			toBreedCount = len(prevGeneration.individualsDict)//4
+			toBreedCount = len(prevGeneration.individualsDict)//4#(len(prevGeneration.individualsDict)+firstGenScore//prevGeneration.bestIndividuals(1)[0].score)
 			toBreed = {'Male':[],'Female':[]}
 			for gender in toBreed:
 				toBreed[gender] = prevGeneration.bestIndividuals(toBreedCount,gender)
@@ -56,6 +58,7 @@ class Generation():
 			return heapq.nlargest(count,(indv for indv in self.individualsDict.values() if indv.gender == gender),key=lambda indv:indv.score)
 		if gender == None:
 			return heapq.nlargest(count,(indv for indv in self.individualsDict.values()),key=lambda indv:indv.score)
+
 class Individual():
 	def __init__(self,Individual1=None,Individual2=None,forcedGender=None):
 		if Individual1 == None and Individual2 == None:
@@ -81,7 +84,6 @@ class Individual():
 
 		self.score = scoreIndividual(self.currentDNA,targetList)
 
-
 	def printGenes(self):
 		print("\ncurrent DNA: %s" % self.currentDNA)
 		print("gender: %s" % self.gender)
@@ -102,7 +104,7 @@ def scoreIndividual(currentGenes,targetGenes):
 def mutate(oldGenList):
 	currentGenList = list(oldGenList)
 	for count in range(random.randrange(len(oldGenList))):
-		chance = random.randrange(5,7)
+		chance = random.randrange(0,7)
 		char = random.randrange(len(currentGenList))
 
 		if chance == 0:
