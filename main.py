@@ -9,158 +9,176 @@ import heapq
 # create ASCII versions of images with pillow?
 
 random.seed(time.time())
-all_chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,.:;!@#$%^&*()-_=+<>/?[]}{|~'
-target_string = input("Target string?\n")
-target_list = list(target_string)
+all_chars = ('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+             '0123456789 ,.:;!@#$%^&*()-_=+<>/?[]}{|~')
+target = input("Target string?\n")
 
 
 class Generation():
 
-    def __init__(self, size=None, prev_generation=None):
-        self.individuals_dict = {}
-        if size is not None and prev_generation is None:
+    def __init__(self, size=None, prev=None):
+        self.individuals = []
+
+        if size is not None:
             for i in range(size):
-                if not any(indv.gender == 'Male' for indv in self.individuals_dict.values()):
-                    print("first male")
-                    self.individuals_dict[i] = Individual(forced_gender='Male')
-                elif not any(indv.gender == 'Female' for indv in self.individuals_dict.values()):
-                    print("first female")
-                    self.individuals_dict[i] = Individual(forced_gender='Female')
+                if len(self.males) == 0:
+                    self.individuals.append(Individual(gender='Male'))
+                elif len(self.females) == 0:
+                    self.individuals.append(Individual(gender='Female'))
                 else:
-                    self.individuals_dict[i] = Individual()
-        elif size is None and prev_generation is not None:
-            to_breed_count = len(prev_generation.individuals_dict) // 4
-            # to_breed_count = (len(prev_generation.individuals_dict)+firstGenScore//prev_generation.best_individuals(1)[0].score)
-            to_breed = {'Male': [], 'Female': []}
-            for gender in to_breed:
-                to_breed[gender] = prev_generation.best_individuals(to_breed_count, gender)
-            self.breed(to_breed, len(prev_generation.individuals_dict) + firstGenScore // prev_generation.best_individuals(1)[0].score)
+                    self.individuals.append(Individual())
+
+        elif prev is not None:
+            parent_count = len(prev.individuals) // 20
+            parents = {'Male': [], 'Female': []}
+            for gender in parents:
+                parents[gender] = prev.best_individuals(parent_count, gender)
+
+            best = prev.best_individuals(1)[0]
+            second = prev.best_individuals(2)[1]
+
+            gen_growth = second.score // best.score
+
+            self.breed(parents, len(prev.individuals) + gen_growth)
+
+    @property
+    def males(self):
+        return [indv for indv in self.individuals if indv.gender == 'Male']
+
+    @property
+    def females(self):
+        return [indv for indv in self.individuals if indv.gender == 'Female']
+
+    def segregated(self, gender):
+        if gender == 'Male':
+            return self.males
+        else:
+            return self.females
 
     def breed(self, specimens_by_gender, pop_size):
-        while len(self.individuals_dict) < pop_size:
-            if not any(indv.gender == 'Male' for indv in self.individuals_dict.values()):
-                self.individuals_dict[len(self.individuals_dict)] = Individual(random.choice(specimens_by_gender['Male']), random.choice(specimens_by_gender['Female']), forced_gender='Male')
-            elif not any(indv.gender == 'Female' for indv in self.individuals_dict.values()):
-                self.individuals_dict[len(self.individuals_dict)] = Individual(random.choice(specimens_by_gender['Male']), random.choice(specimens_by_gender['Female']), forced_gender='Female')
+        for i in range(pop_size):
+            male = random.choice(specimens_by_gender['Male'])
+            female = random.choice(specimens_by_gender['Female'])
+
+            if len(self.males) == 0:
+                self.individuals.append(Individual(male,
+                                                   female,
+                                                   gender='Male'))
+            elif len(self.females) == 0:
+                self.individuals.append(Individual(male,
+                                                   female,
+                                                   gender='Female'))
             else:
-                self.individuals_dict[len(self.individuals_dict)] = Individual(random.choice(specimens_by_gender['Male']), random.choice(specimens_by_gender['Female']))
+                self.individuals.append(Individual(male,
+                                                   female))
         return
 
-    def best_individuals(self, count, gender=None):
+    def best_individuals(self, n, gender=None):
         if gender is not None:
-            return heapq.nsmallest(count, (indv for indv in self.individuals_dict.values() if indv.gender == gender), key=lambda indv: indv.score)
-        if gender is None:
-            return heapq.nsmallest(count, self.individuals_dict.values(), key=lambda indv: indv.score)
+            return heapq.nsmallest(n,
+                                   self.segregated(gender),
+                                   key=lambda indv: indv.score)
+        return heapq.nsmallest(n,
+                               self.individuals,
+                               key=lambda indv: indv.score)
 
-    def worst_individuals(self, count, gender=None):
+    def worst_individuals(self, n, gender=None):
         if gender is not None:
-            return heapq.nlargest(count, (indv for indv in self.individuals_dict.values() if indv.gender == gender), key=lambda indv: indv.score)
-        if gender is None:
-            return heapq.nlargest(count, self.individuals_dict.values(), key=lambda indv: indv.score)
+            return heapq.nlargest(n,
+                                  self.segregated(gender),
+                                  key=lambda indv: indv.score)
+        return heapq.nlargest(n,
+                              self.individuals,
+                              key=lambda indv: indv.score)
 
 
 class Individual():
 
-    def __init__(self, individual_1=None, individual_2=None, forced_gender=None):
-        if individual_1 is None and individual_2 is None:
-            self.currentDNA = [random.choice(all_chars) for i in target_string]
-            self.genes = DNA2Genes(self.currentDNA)
+    def __init__(self, first=None, other=None, gender=None):
+        if first is None and other is None:
+            self.currentDNA = [random.choice(all_chars) for i in target]
+            self.genes = self.DNA2Genes()
 
-        elif individual_1 is not None and individual_2 is not None and individual_1.gender != individual_2.gender:
-            self.genes = [random.choice([individual_1.genes[count], individual_2.genes[count]]) for count in range(len(individual_1.genes))]
-            self.currentDNA = [genepart for gene in self.genes for genepart in gene]
+        elif first.gender != other.gender:
+            self.genes = []
+            for n, gene in enumerate(first.genes):
+                self.genes.append(random.choice([gene,
+                                                 other.genes[n]]
+                                                ))
+
+            self.currentDNA = [char for gene in self.genes for char in gene]
             if random.randrange(0, 100) > 10:
-                self.currentDNA = mutate(self.currentDNA)
-                self.genes = DNA2Genes(self.currentDNA)
+                self.currentDNA = self.mutate()
+                self.genes = self.DNA2Genes()
 
-        self.gender = forced_gender or random.choice(['Male', 'Female'])
+        self.currentDNA = ''.join(self.currentDNA)
+        self.gender = gender or random.choice(['Male', 'Female'])
+        self.score = self.score_individual(target)
 
-        self.score = score_individual(self.currentDNA, target_list)
+    def score_individual(self, target_genes):
+        score = 0
+        for i, gene in enumerate(target_genes):
+            multiplier = ord(self.currentDNA[i]) - ord(gene)
+            score += multiplier * multiplier
+        return score
 
+    def DNA2Genes(self):
+        fourth = len(self.currentDNA) // 4
+        genes = [self.currentDNA[:fourth],
+                 self.currentDNA[fourth:2 * fourth],
+                 self.currentDNA[2 * fourth: - fourth],
+                 self.currentDNA[- fourth:]
+                 ]
+        return genes
 
-def DNA2Genes(currentDNA):
-    genes = [currentDNA[:len(currentDNA) // 4],
-             currentDNA[len(currentDNA) // 4:len(currentDNA) // 2],
-             currentDNA[len(currentDNA) // 2: - len(currentDNA) // 4],
-             currentDNA[- len(currentDNA) // 4:]
-             ]
-    return genes
+    def mutate(self):
+        for count in range(random.randrange(len(self.currentDNA))):
+            chance = random.randrange(0, 7)
+            char = random.randrange(len(self.currentDNA))
 
-
-def score_individual(current_genes, target_genes):
-    score = 0
-    for i in range(len(target_genes)):
-        multiplier = ord(current_genes[i]) - ord(target_genes[i])
-        score += multiplier * multiplier
-    return score
-
-
-def mutate(old_gen_list):
-    current_gen_list = list(old_gen_list)
-    for count in range(random.randrange(len(old_gen_list))):
-        chance = random.randrange(0, 7)
-        char = random.randrange(len(current_gen_list))
-
-        if chance == 0:
-            pass
-        if chance == 1:
-            try:
-                current_gen_list[char] = current_gen_list[char + 1]
-            except IndexError:
+            if chance == 0:
                 pass
-        if chance == 2:
-            try:
-                current_gen_list[char] = current_gen_list[char - 1]
-            except IndexError:
-                pass
-        if chance == 3:
-            try:
-                current_gen_list[char] = current_gen_list[char + 2]
-            except IndexError:
-                pass
-        if chance == 4:
-            try:
-                current_gen_list[char] = current_gen_list[char - 2]
-            except IndexError:
-                pass
-        if chance == 5:
-            try:
-                current_gen_list[char] = chr(ord(current_gen_list[char]) + 1)
-            except IndexError:
-                pass
-        if chance == 6:
-            try:
-                current_gen_list[char] = chr(ord(current_gen_list[char]) - 1)
-            except IndexError:
-                pass
-    return current_gen_list
-
-
-def nextGen(old_generation):
-    newGeneration = Generation(old_generation)
-    return newGeneration
+            if char < (len(self.currentDNA) - 1) and char > 1:
+                if chance == 1:
+                    self.currentDNA[char] = self.currentDNA[char + 1]
+                if chance == 2:
+                    self.currentDNA[char] = self.currentDNA[char - 1]
+            if char < (len(self.currentDNA) - 2) and char > 2:
+                if chance == 3:
+                    self.currentDNA[char] = self.currentDNA[char + 2]
+                if chance == 4:
+                    self.currentDNA[char] = self.currentDNA[char - 2]
+            if chance == 5:
+                self.currentDNA[char] = chr(ord(self.currentDNA[char]) + 1)
+            if chance == 6:
+                self.currentDNA[char] = chr(ord(self.currentDNA[char]) - 1)
+        return self.currentDNA
 
 
 gen_count = 0
-lastscore = 10000
-bestscore = 99999
+
+best = 99999
 lastprintgen = 0
 initial_gen_size = random.randrange(100, 150) * 2
 current_gen = Generation(size=initial_gen_size)
-firstGenScore = current_gen.best_individuals(1)[0].score
-initialstrings = str(["".join(indv.currentDNA) for indv in current_gen.individuals_dict.values()])
-print(target_list)
-while target_list != current_gen.best_individuals(1)[0].currentDNA:
+
+while target != current_gen.best_individuals(1)[0].currentDNA:
     old_gen = current_gen
-    current_gen = Generation(prev_generation=old_gen)
+    current_gen = Generation(prev=old_gen)
     gen_count += 1
 
-    lastscore = current_gen.best_individuals(1)[0].score
-    if lastscore < bestscore:
-        bestscore = lastscore
-        print("best score so far: %s, population %s, generations since last print: %s" % (bestscore, len(current_gen.individuals_dict.values()), gen_count - lastprintgen))
+    last = current_gen.best_individuals(1)[0].score
+    if last < best:
+        best = last
+        print("best score so far: %s,"
+              " population %s,"
+              " generations since last print: %s"
+              % (best,
+                 len(current_gen.individuals),
+                 gen_count - lastprintgen))
         lastprintgen = gen_count
+
 print("Final generation count: {}".format(gen_count),
-      "Target string: {}".format(target_string),
+      "Target string: {}".format(target),
       "Initial generation size: {}".format(initial_gen_size),
       sep="\n")
